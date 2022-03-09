@@ -6,15 +6,23 @@
 use std::{
     borrow::Cow,
     io::{Cursor, Write},
-    process::{Command, Stdio},
+   
+   
 };
+ #[cfg(feature = "ghostscript")]
+ use std::process::{Command, Stdio};
 
 use arboard::{Clipboard, ImageData};
+
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
-
 use clap::Parser;
-use tectonic::tt_error;
+
+#[cfg(feature = "with_poppler")]
+use cairo::Format;
+
+#[cfg(feature = "with_poppler")]
+use poppler::{PopplerDocument, PopplerPage};
 
 #[derive(Parser, Debug)]
 #[clap(author = "Patrick Amrein", version = "1.0", about = "Copy latex formula to the clipboard", long_about = None)]
@@ -45,7 +53,6 @@ fn main() {
     } else {
         input.formula
     };
-    println!("{}", formula);
     let latex = format!(
         r#"
 \documentclass[border=4pt,preview]{{standalone}}
@@ -62,31 +69,55 @@ fn main() {
         formula
     );
 
-    let pdf_data: Vec<u8> = match tectonic::latex_to_pdf(latex) {
+    let mut pdf_data: Vec<u8> = match tectonic::latex_to_pdf(latex) {
         Ok(data) => data,
         Err(e) => {
             panic!("{:?}", e)
         }
     };
-    let mut command = Command::new("gs")
-        .arg("-q")
-        .arg("-dSAFER")
-        .arg("-r300")
-        .arg("-sDEVICE=pngalpha")
-        .arg("-sOutputFile=-")
-        .arg("-")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut png = vec![];
+    #[cfg(feature = "with_poppler")]
+    {
+        let doc: PopplerDocument = PopplerDocument::new_from_data(&mut pdf_data, "").unwrap();
+        let page: PopplerPage = doc.get_page(0).unwrap();
 
-    let mut stdin = command.stdin.take().unwrap();
+        let (width, height) = page.get_size();
+        let (width, height) = (4.0 * width, 4.0 * height);
+        let surface =
+            cairo::ImageSurface::create(Format::ARgb32, width as i32, height as i32).unwrap();
+        surface.set_fallback_resolution(300.0, 300.0);
+        surface.set_device_scale(4.0, 4.0);
+        let ctxt = cairo::Context::new(&surface).unwrap();
+        ctxt.set_source_rgba(0.0, 0.0, 0.0, 0.0);
+        ctxt.paint().unwrap();
+        page.render_for_printing(&ctxt);
 
-    stdin.write_all(&pdf_data).unwrap();
-    drop(stdin);
-    let stdout = command.wait_with_output().unwrap();
-    let png = stdout.stdout;
+        surface.write_to_png(&mut png).unwrap();
+    }
+
+    #[cfg(feature = "ghostscript")]
+    {
+        let mut command = Command::new("gs")
+            .arg("-q")
+            .arg("-dSAFER")
+            .arg("-r300")
+            .arg("-sDEVICE=pngalpha")
+            .arg("-sOutputFile=-")
+            .arg("-")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut stdin = command.stdin.take().unwrap();
+
+        stdin.write_all(&pdf_data).unwrap();
+        drop(stdin);
+        let stdout = command.wait_with_output().unwrap();
+        png = stdout.stdout;
+    }
+
     if input.to_stdout {
         std::io::stdout().write_all(&png).unwrap();
     } else {

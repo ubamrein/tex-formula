@@ -7,6 +7,14 @@ edition = "2021"
 
 [dependencies]
 arboard = "2.0.1"
+cairo-rs = {version = "0.14",  optional = true}
 clap = {version = "3.1.6", features = ["derive"] }
+glib = {version = "0.15.8", optional = true}
 image = "0.24.1"
+poppler = {version = "0.3.1", optional = true}
 tectonic = "0.8.2"
+
+[features]
+default = ["ghostscript"]
+with_poppler = ["cairo-rs", "poppler", "glib"]
+ghostscript = []
