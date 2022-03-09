@@ -27,6 +27,25 @@ struct Args {
 }
 fn main() {
     let input = Args::parse();
+    let formula = if input.formula == "-" {
+        let mut input = String::new();
+        loop {
+            match std::io::stdin().read_line(&mut input) {
+                Ok(len) => {
+                    if len == 0 {
+                        break input;
+                    }
+                }
+                Err(error) => {
+                    eprintln!("error: {}", error);
+                    return;
+                }
+            };
+        }
+    } else {
+        input.formula
+    };
+    println!("{}", formula);
     let latex = format!(
         r#"
 \documentclass[border=4pt,preview]{{standalone}}
@@ -40,7 +59,7 @@ fn main() {
 \end{{document}}
 "#,
         input.font_size.unwrap_or(12),
-        input.formula
+        formula
     );
 
     let pdf_data: Vec<u8> = match tectonic::latex_to_pdf(latex) {
