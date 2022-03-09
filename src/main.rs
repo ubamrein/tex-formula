@@ -11,6 +11,7 @@ use image::{DynamicImage};
 use image::io::Reader as ImageReader;
 
 use clap::Parser;
+use tectonic::tt_error;
 
 #[derive(Parser, Debug)]
 #[clap(author = "Patrick Amrein", version = "1.0", about = "Copy latex formula to the clipboard", long_about = None)]
@@ -23,17 +24,26 @@ fn main() {
     let input = Args::parse();
     let latex = format!(
         r#"
-\documentclass[border=4pt]{{standalone}}
-\begin{{document}}
+\documentclass[border=4pt,preview]{{standalone}}
+\usepackage{{mathtools}}
+\usepackage{{amsthm}}
 \fontsize{{ {} }}{{12}}\selectfont
-${}$
+\begin{{document}}
+    \begin{{align*}}
+    {}
+    \end{{align*}}
 \end{{document}}
 "#,
         input.font_size.unwrap_or(12),
         input.formula
     );
-
-    let pdf_data: Vec<u8> = tectonic::latex_to_pdf(latex).expect("processing failed");
+    
+    let pdf_data: Vec<u8> = match tectonic::latex_to_pdf(latex) {
+        Ok(data) => data,
+        Err(e) => {
+            panic!("{:?}",e )
+        },
+    };
     let mut command = Command::new("gs")
         .arg("-q")
         .arg("-dSAFER")
