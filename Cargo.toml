@@ -1,0 +1,12 @@
+[package]
+name = "tex-formula"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+arboard = "2.0.1"
+clap = {version = "3.1.6", features = ["derive"] }
+image = "0.24.1"
+tectonic = "0.8.2"
