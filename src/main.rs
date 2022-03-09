@@ -1,14 +1,17 @@
 // Copyright (c) 2022 Patrick Amrein <amrein@ubique.ch>
-// 
+//
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-
-use std::{process::{Command, Stdio}, io::{Write, Cursor}, borrow::Cow};
+use std::{
+    borrow::Cow,
+    io::{Cursor, Write},
+    process::{Command, Stdio},
+};
 
 use arboard::{Clipboard, ImageData};
-use image::{DynamicImage};
 use image::io::Reader as ImageReader;
+use image::DynamicImage;
 
 use clap::Parser;
 use tectonic::tt_error;
@@ -18,6 +21,8 @@ use tectonic::tt_error;
 struct Args {
     #[clap(short, long)]
     font_size: Option<u32>,
+    #[clap(short, long)]
+    to_stdout: bool,
     formula: String,
 }
 fn main() {
@@ -37,12 +42,12 @@ fn main() {
         input.font_size.unwrap_or(12),
         input.formula
     );
-    
+
     let pdf_data: Vec<u8> = match tectonic::latex_to_pdf(latex) {
         Ok(data) => data,
         Err(e) => {
-            panic!("{:?}",e )
-        },
+            panic!("{:?}", e)
+        }
     };
     let mut command = Command::new("gs")
         .arg("-q")
@@ -54,22 +59,30 @@ fn main() {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn().unwrap();
-       
+        .spawn()
+        .unwrap();
 
     let mut stdin = command.stdin.take().unwrap();
-  
+
     stdin.write_all(&pdf_data).unwrap();
     drop(stdin);
     let stdout = command.wait_with_output().unwrap();
     let png = stdout.stdout;
-    let dynamic_image : DynamicImage = ImageReader::new(Cursor::new(&png)).with_guessed_format().unwrap().decode().unwrap();
-    let mut clip = Clipboard::new().unwrap();
-    let bytes = dynamic_image.to_rgba8().to_vec();
-    let image_data = ImageData {
-        width: dynamic_image.width() as usize,
-        height: dynamic_image.height() as usize,
-        bytes: Cow::Owned(bytes)
-    };
-    clip.set_image(image_data).unwrap();
+    if input.to_stdout {
+        std::io::stdout().write_all(&png).unwrap();
+    } else {
+        let dynamic_image: DynamicImage = ImageReader::new(Cursor::new(&png))
+            .with_guessed_format()
+            .unwrap()
+            .decode()
+            .unwrap();
+        let mut clip = Clipboard::new().unwrap();
+        let bytes = dynamic_image.to_rgba8().to_vec();
+        let image_data = ImageData {
+            width: dynamic_image.width() as usize,
+            height: dynamic_image.height() as usize,
+            bytes: Cow::Owned(bytes),
+        };
+        clip.set_image(image_data).unwrap();
+    }
 }
