@@ -31,6 +31,7 @@ struct Args {
     font_size: Option<u32>,
     #[clap(short, long)]
     to_stdout: bool,
+    #[clap(default_value = "-")]
     formula: String,
 }
 fn main() {
@@ -40,7 +41,8 @@ fn main() {
         loop {
             match std::io::stdin().read_line(&mut input) {
                 Ok(len) => {
-                    if len == 0 {
+                    if len == 0 || input.ends_with("<<end\n") {
+                        input = input.trim().replace("<<end", "").trim().to_string();
                         break input;
                     }
                 }
@@ -53,11 +55,13 @@ fn main() {
     } else {
         input.formula
     };
+    println!("{}", formula);
     let latex = format!(
         r#"
 \documentclass[border=4pt,preview]{{standalone}}
 \usepackage{{mathtools}}
 \usepackage{{amsthm}}
+\DeclareMathOperator{{\lcm}}{{lcm}}
 \fontsize{{ {} }}{{12}}\selectfont
 \begin{{document}}
     \begin{{align*}}
