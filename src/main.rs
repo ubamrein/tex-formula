@@ -44,7 +44,7 @@ fn main() {
     let formula = if input.editor {
         let mut editor = dialoguer::Editor::new();
         editor.require_save(true);
-        editor.extension("tex");
+        editor.extension(".tex");
         editor.executable(&input.editor_command);
         if let Some(result) = editor.edit("Enter the formula").unwrap() {
             result.trim().to_string()
