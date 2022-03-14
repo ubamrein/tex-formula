@@ -31,12 +31,28 @@ struct Args {
     font_size: Option<u32>,
     #[clap(short, long)]
     to_stdout: bool,
+    #[clap(short, long)]
+    editor: bool,
+    #[clap(long, default_value = "code --wait")]
+    editor_command: String,
     #[clap(default_value = "-")]
     formula: String,
+    
 }
 fn main() {
     let input = Args::parse();
-    let formula = if input.formula == "-" {
+    let formula = if input.editor {
+        let mut editor = dialoguer::Editor::new();
+        editor.require_save(true);
+        editor.extension("tex");
+        editor.executable(&input.editor_command);
+        if let Some(result) = editor.edit("Enter the formula").unwrap() {
+            result.trim().to_string()
+        } else {
+            panic!("Abborted");
+        }
+
+    } else if input.formula == "-" {
         let mut input = String::new();
         loop {
             match std::io::stdin().read_line(&mut input) {
